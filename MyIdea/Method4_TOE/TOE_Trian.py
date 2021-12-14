@@ -75,33 +75,6 @@ def get_optimizer(net, state=None):
     if state is not None:
         optimizer.load_state_dict(state)
     return optimizer
-
-def Meta_Update(net,Tasks,t,args):
-    """输入是神经网络参数和任务集合
-    作用 ：meta learning
-    """
-    N_meta = args.N_meta
-    meta_lr = args.meta_lr #* (1. - meta_iteration/float(args.meta_iterations))
-    
-    set_learning_rate(meta_optimizer, meta_lr)  #设置学习率
-    for n_m in range(N_meta):
-        # sample a task
-        Select_Task_index = np.random.choice(t+1, 1, replace=False)[0] #随机选取一个任务
-        meta_Task,_ = Tasks[Select_Task_index]
-        Train_data = DataLoader(meta_Task, args.batch, shuffle=True)
-        # Clone mode
-        net = meta_net.clone()# 复制上一个任务的模型参数
-        optimizer = get_optimizer(net)  #创建当前网络的优化器
-        # Update fast net
-        loss = do_learning(net, optimizer, Train_data, args.meta_iterations,Mydevice)
-        state = optimizer.state_dict()  # save optimizer state
-
-        # Update slow net
-        meta_net.point_grad_to(net) # net是目标梯度
-        meta_optimizer.step()
-        torch.cuda.empty_cache()
-    return meta_net
-
 def Update_Procedure(net,current_task,args):
     """对D这个任务（数据集）进行训练"""
     optimizer = get_optimizer(net)   # 设置优化器
@@ -124,7 +97,7 @@ parser.add_argument('--meta-lr', default=1., type=float, help='meta learning rat
 parser.add_argument('--lr', default=1e-3, type=float, help='base learning rate')
 
 # - General params
-parser.add_argument('--Val_precent', default=0.2, type=float, help='the numbers of datapoints')
+parser.add_argument('--Val_precent', default=0.1, type=float, help='the numbers of datapoints')
 parser.add_argument('--yy', default=0.2, type=float, help='the numbers of datapoints')
 parser.add_argument('--input', default='/home/huang/Desktop/Hw/ConvexOptimization/Data/mini-imagenet', help='Path to omniglot dataset')
 parser.add_argument('--cuda', default=1, type=int, help='Use cuda')
@@ -145,16 +118,15 @@ MyTaskset = TasksSet(args,transform_image)
 
 from models import MiniImagenetModel
 torch.cuda.empty_cache()
-meta_net = MiniImagenetModel(args.classes)  #构建模型
-meta_net.to(Mydevice)
-meta_optimizer = torch.optim.SGD(meta_net.parameters(), lr=args.meta_lr)
 info = {}
 info["loss"] = []
 info["acc"] = []
 info["end_iteraion"] = []
 for t in tqdm.trange(len(MyTaskset)):
-    meta_net = Meta_Update(meta_net,MyTaskset,t,args)  #元学习
-    loss,acc,end_iteraion = Update_Procedure(meta_net.clone(),MyTaskset[t],args)
+    # initial model
+    Model_net = MiniImagenetModel(args.classes)
+    Model_net.to(Mydevice)
+    loss,acc,end_iteraion = Update_Procedure(Model_net,MyTaskset[t],args)
     print("accuracy:%f,loss:%f,end_iteraion:%f"%(acc,loss,end_iteraion))
     info["loss"].append(loss)
     info["acc"].append(acc)

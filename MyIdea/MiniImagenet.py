@@ -47,8 +47,9 @@ class FewShot(data.Dataset):### 直接把图片扔进来就行
 
     def __getitem__(self, idx):
         path = self.paths[idx]['path']
-        image = read_image(path)
+        image =Image.open(path, mode='r')#.convert('L')
         image = self.transforms_image(image)
+        # print(image.shape)
         # image = self.parent.cache.read_image(path, self.parent.size)
         # if self.parent.transform_image is not None:
         #     image = self.parent.transform_image(image)
@@ -132,6 +133,8 @@ class TasksSet:
         counts_test =0
         Val_precent = self.arg.Val_precent  #验证集合比例
         Val_num = int( self.arg.C_datapoints*Val_precent)
+        Meta_label = []
+        Test_label = []
         for index_class in Task:
             Selcet_Val_index = np.random.choice( self.arg.C_datapoints,Val_num,replace=False)
             index_list = Task[index_class]
@@ -145,11 +148,14 @@ class TasksSet:
                     Path_test[counts_test]['path'] = path_ele
                     Path_test[counts_test]['label'] = int(index_class)
                     counts_test += 1
+                    Test_label.append(int(index_class))
+
                 else:
                     Path_Meta[counts_Meta] ={}
                     Path_Meta[counts_Meta]['path'] = path_ele
                     Path_Meta[counts_Meta]['label'] = int(index_class)
                     counts_Meta += 1
+                    Meta_label.append(int(index_class))
         return FewShot(Path_Meta,self.transforms_image,select_list),FewShot(Path_test,self.transforms_image,select_list)
 
 
@@ -180,7 +186,7 @@ class TOESet:
 
 class AbstractMetaOmniglot(object):
 
-    def __init__(self, Path_dict, cache=None, size=(28, 28),
+    def __init__(self, Path_dict, cache=None, size=(32, 32),
                  transform_image=None, transform_label=None):
         self.Path_dict = Path_dict
         self.cache = cache
